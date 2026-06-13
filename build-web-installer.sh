@@ -15,7 +15,7 @@ BOOT_APP0=$(find . -path "*/boot_app0.bin" | head -1)
 
 if [ -z "$BOOT_APP0" ]; then
   echo "boot_app0.bin not found, merging without it"
-  esptool merge-bin \
+  esptool --chip esp32 merge-bin \
     -o "$OUT_DIR/merged.bin" \
     --flash-mode dio \
     --flash-freq 40m \
@@ -24,7 +24,7 @@ if [ -z "$BOOT_APP0" ]; then
     0x8000  "$BUILD_DIR/partitions.bin" \
     0x10000 "$BUILD_DIR/firmware.bin"
 else
-  esptool merge-bin \
+  esptool --chip esp32 merge-bin \
     -o "$OUT_DIR/merged.bin" \
     --flash-mode dio \
     --flash-freq 40m \
