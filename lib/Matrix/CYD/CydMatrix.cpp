@@ -885,64 +885,51 @@ void CydMatrix::setColorDiagnostic(bool invert, bool swap) {
   tft.setSwapBytes(swap);
 }
 
-// Draws seven color rows (top to bottom: RED, GREEN, BLUE, YELLOW, CYAN,
-// MAGENTA, WHITE). Each row has three columns so the correct byte-swap setting
-// for the aquarium's pushImage path can be read by eye:
-//   col 0 (left)   = fillRect reference (always correct on this panel)
-//   col 1 (middle) = pushImage with byte-swap ON
-//   col 2 (right)  = pushImage with byte-swap OFF
-// Whichever pushImage column matches the left reference is the right setting.
+// Draws five horizontal gradient bands (black -> RED, GREEN, BLUE, YELLOW,
+// WHITE) via pushImage with byte-swap ON - the same push path the aquarium
+// uses. If the bands are smooth, the panel renders gradients faithfully and any
+// rainbow in the aquarium comes from pixel values. If the bands themselves come
+// out as rainbow speckle, the panel scrambles gradients over pushImage.
 void CydMatrix::drawColorTestCard() {
-  struct TestBar {
+  struct Hue {
     uint8_t r;
     uint8_t g;
     uint8_t b;
   };
-  static const TestBar bars[] = {
-      {255, 0, 0},   {0, 255, 0},   {0, 0, 255}, {255, 255, 0},
-      {0, 255, 255}, {255, 0, 255}, {255, 255, 255},
+  static const Hue hues[] = {
+      {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {255, 255, 255},
   };
-  const uint8_t count = sizeof(bars) / sizeof(bars[0]);
+  const uint8_t bands = sizeof(hues) / sizeof(hues[0]);
   const int16_t w = tft.width();
   const int16_t h = tft.height();
-  const int16_t bandHeight = h / count;
-  const int16_t maxBandHeight = h - (count - 1) * bandHeight;
-  const int16_t colWidth = w / 3;
+  const int16_t bandHeight = h / bands;
+  const int16_t span = w > 1 ? w - 1 : 1;
 
-  const size_t bufPixels =
-      static_cast<size_t>(colWidth) * static_cast<size_t>(maxBandHeight);
-  uint16_t* buf = static_cast<uint16_t*>(malloc(bufPixels * sizeof(uint16_t)));
+  uint16_t* rowBuf = static_cast<uint16_t*>(malloc(w * sizeof(uint16_t)));
 
+  tft.setSwapBytes(true);
   tft.fillScreen(TFT_BLACK);
-  for (uint8_t i = 0; i < count; ++i) {
-    const uint16_t color = tft.color565(bars[i].r, bars[i].g, bars[i].b);
-    const int16_t y = i * bandHeight;
-    const int16_t bh = (i == count - 1) ? (h - y) : bandHeight;
-
-    // Column 0: fillRect reference (correct color on this panel).
-    tft.fillRect(0, y, colWidth, bh, color);
-
-    if (buf != nullptr) {
-      const size_t pixels = static_cast<size_t>(colWidth) * bh;
-      for (size_t p = 0; p < pixels; ++p) {
-        buf[p] = color;
+  if (rowBuf != nullptr) {
+    for (uint8_t bi = 0; bi < bands; ++bi) {
+      for (int16_t x = 0; x < w; ++x) {
+        const uint16_t f = static_cast<uint16_t>(x) * 255 / span;
+        const uint8_t r = static_cast<uint8_t>(hues[bi].r * f / 255);
+        const uint8_t g = static_cast<uint8_t>(hues[bi].g * f / 255);
+        const uint8_t b = static_cast<uint8_t>(hues[bi].b * f / 255);
+        rowBuf[x] = tft.color565(r, g, b);
       }
-      // Column 1: pushImage with byte-swap ON.
-      tft.setSwapBytes(true);
-      tft.pushImage(colWidth, y, colWidth, bh, buf);
-      // Column 2: pushImage with byte-swap OFF.
-      tft.setSwapBytes(false);
-      tft.pushImage(2 * colWidth, y, colWidth, bh, buf);
+      const int16_t y0 = bi * bandHeight;
+      const int16_t y1 = (bi == bands - 1) ? h : (y0 + bandHeight);
+      for (int16_t y = y0; y < y1; ++y) {
+        tft.pushImage(0, y, w, 1, rowBuf);
+      }
     }
-  }
-
-  if (buf != nullptr) {
-    free(buf);
+    free(rowBuf);
   }
   tft.setSwapBytes(CYD_TFT_SWAP_BYTES != 0);
   Serial.println(
-      "color test card: col0=fillRect ref, col1=pushImage swapON, "
-      "col2=pushImage swapOFF; rows R G B Y C M W");
+      "color test card: horizontal gradients black->R,G,B,Y,W via pushImage "
+      "swapON");
 }
 
 #endif  // PANEL_CYD_TFT
