@@ -38,12 +38,6 @@
 #define CYD_TFT_SWAP_BYTES 1
 #endif
 
-// Some CYD panel revisions use BGR color order, which makes blue render as
-// orange/red. Setting this swaps the red and blue channels at output.
-#ifndef CYD_TFT_SWAP_RB
-#define CYD_TFT_SWAP_RB 0
-#endif
-
 #ifndef CYD_TFT_TONE_CORRECTION
 #define CYD_TFT_TONE_CORRECTION 1
 #endif
@@ -316,11 +310,7 @@ uint16_t CydMatrix::packRgb565ForDisplay(uint8_t r, uint8_t g, uint8_t b,
                                 CYD_TFT_TONE_BLACK_THRESHOLD);
   }
 
-#if CYD_TFT_SWAP_RB
-  return tft.color565(color.b, color.g, color.r);
-#else
   return tft.color565(color.r, color.g, color.b);
-#endif
 }
 
 uint16_t CydMatrix::toRgb565(uint8_t r, uint8_t g, uint8_t b) {
@@ -878,58 +868,6 @@ void CydMatrix::setBacklightPercent(uint8_t percent) {
 
 uint8_t CydMatrix::getBacklightPercent() const {
   return backlightPercent;
-}
-
-void CydMatrix::setColorDiagnostic(bool invert, bool swap) {
-  tft.invertDisplay(invert);
-  tft.setSwapBytes(swap);
-}
-
-// Draws five horizontal gradient bands (black -> RED, GREEN, BLUE, YELLOW,
-// WHITE) via pushImage with byte-swap ON - the same push path the aquarium
-// uses. If the bands are smooth, the panel renders gradients faithfully and any
-// rainbow in the aquarium comes from pixel values. If the bands themselves come
-// out as rainbow speckle, the panel scrambles gradients over pushImage.
-void CydMatrix::drawColorTestCard() {
-  struct Hue {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-  };
-  static const Hue hues[] = {
-      {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {255, 255, 255},
-  };
-  const uint8_t bands = sizeof(hues) / sizeof(hues[0]);
-  const int16_t w = tft.width();
-  const int16_t h = tft.height();
-  const int16_t bandHeight = h / bands;
-  const int16_t span = w > 1 ? w - 1 : 1;
-
-  uint16_t* rowBuf = static_cast<uint16_t*>(malloc(w * sizeof(uint16_t)));
-
-  tft.setSwapBytes(true);
-  tft.fillScreen(TFT_BLACK);
-  if (rowBuf != nullptr) {
-    for (uint8_t bi = 0; bi < bands; ++bi) {
-      for (int16_t x = 0; x < w; ++x) {
-        const uint16_t f = static_cast<uint16_t>(x) * 255 / span;
-        const uint8_t r = static_cast<uint8_t>(hues[bi].r * f / 255);
-        const uint8_t g = static_cast<uint8_t>(hues[bi].g * f / 255);
-        const uint8_t b = static_cast<uint8_t>(hues[bi].b * f / 255);
-        rowBuf[x] = tft.color565(r, g, b);
-      }
-      const int16_t y0 = bi * bandHeight;
-      const int16_t y1 = (bi == bands - 1) ? h : (y0 + bandHeight);
-      for (int16_t y = y0; y < y1; ++y) {
-        tft.pushImage(0, y, w, 1, rowBuf);
-      }
-    }
-    free(rowBuf);
-  }
-  tft.setSwapBytes(CYD_TFT_SWAP_BYTES != 0);
-  Serial.println(
-      "color test card: horizontal gradients black->R,G,B,Y,W via pushImage "
-      "swapON");
 }
 
 #endif  // PANEL_CYD_TFT

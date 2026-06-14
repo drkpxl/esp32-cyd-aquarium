@@ -59,16 +59,8 @@
 #define CYD_SHOW_CLOCK 1
 #endif
 
-#ifndef CYD_COLOR_DIAGNOSTIC
-#define CYD_COLOR_DIAGNOSTIC 0
-#endif
-
-#ifndef CYD_COLOR_TEST_CARD
-#define CYD_COLOR_TEST_CARD 0
-#endif
-
-#ifndef CYD_COLOR_DIAGNOSTIC_INTERVAL_MS
-#define CYD_COLOR_DIAGNOSTIC_INTERVAL_MS 6000UL
+#ifndef CYD_ENABLE_TOUCH
+#define CYD_ENABLE_TOUCH 1
 #endif
 
 #ifndef CYD_WIFI_SSID
@@ -1046,47 +1038,6 @@ void renderClockOverlay() {
 #endif  // CYD_SHOW_CLOCK
 }
 
-#if CYD_COLOR_DIAGNOSTIC
-// Cycles the display through the four hardware color configs (inversion x byte
-// swap) every CYD_COLOR_DIAGNOSTIC_INTERVAL_MS, drawing a big A/B/C/D label so
-// the correct combination for this panel can be identified by eye.
-void renderColorDiagnosticOverlay() {
-  if (matrix.foreground == nullptr) {
-    return;
-  }
-
-  struct DiagConfig {
-    bool invert;
-    bool swap;
-    const char* label;
-  };
-  static const DiagConfig configs[] = {
-      {true, true, "A"},
-      {true, false, "B"},
-      {false, true, "C"},
-      {false, false, "D"},
-  };
-  const uint8_t configCount = sizeof(configs) / sizeof(configs[0]);
-  const uint8_t index =
-      (millis() / CYD_COLOR_DIAGNOSTIC_INTERVAL_MS) % configCount;
-
-  static int lastIndex = -1;
-  if (index != lastIndex) {
-    lastIndex = index;
-    matrix.setColorDiagnostic(configs[index].invert, configs[index].swap);
-    Serial.printf("color diag=%s invert=%s swap=%s\n", configs[index].label,
-                  configs[index].invert ? "on" : "off",
-                  configs[index].swap ? "on" : "off");
-  }
-
-  const int16_t centerX = CydMatrixSettings::LOGICAL_WIDTH / 2;
-  const uint16_t labelColor = matrix.foreground->color565(255, 255, 255);
-  const uint16_t shadowColor = matrix.foreground->color565(0, 0, 0);
-  drawCenteredPixelText(configs[index].label, centerX, 6, 5, 1, labelColor,
-                        shadowColor);
-}
-#endif  // CYD_COLOR_DIAGNOSTIC
-
 void forceFixedEnvironment() {
   State* state = stateManager.getState();
   state->environment.temperature.value = DEFAULT_TEMPERATURE_VALUE;
@@ -1242,7 +1193,9 @@ void setup() {
 #if CYD_STARTUP_SMOKE_TEST
   matrix.runStartupSmokeTest();
 #endif
+#if CYD_ENABLE_TOUCH
   touch.init();
+#endif
   initClock();
   startClockSync("boot");
   setupLightSensorDiagnostic();
@@ -1257,21 +1210,12 @@ void setup() {
   matrix.setBrightness(stateManager.getState()->brightness);
   setupAmbientBacklight();
 
-#if CYD_COLOR_TEST_CARD
-  matrix.drawColorTestCard();
-  return;
-#endif
-
   aquarium.begin();
 }
 
 void loop() {
-#if CYD_COLOR_TEST_CARD
-  delay(100);
-  return;
-#endif
   static unsigned long lastFrameTime = 0;
-#if CYD_TOUCH_DEBUG
+#if CYD_ENABLE_TOUCH && CYD_TOUCH_DEBUG
   static unsigned long lastTouchDebugTime = 0;
 #endif
   const unsigned long now = millis();
@@ -1281,6 +1225,7 @@ void loop() {
   if (now - lastFrameTime >= FRAME_INTERVAL_MS) {
     lastFrameTime = now;
     const uint32_t frameStartUs = micros();
+#if CYD_ENABLE_TOUCH
     const CydTouchPoint& touchPoint = touch.update();
     if (touch.pressedStarted()) {
       aquarium.onTouchStarted();
@@ -1299,13 +1244,11 @@ void loop() {
       lastTouchDebugTime = now;
     }
 #endif
+#endif  // CYD_ENABLE_TOUCH
 
     forceFixedEnvironment();
     aquarium.update(false);
     renderClockOverlay();
-#if CYD_COLOR_DIAGNOSTIC
-    renderColorDiagnosticOverlay();
-#endif
     aquarium.display();
     matrix.update();
     recordPerfDebug(micros() - frameStartUs);

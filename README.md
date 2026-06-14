@@ -20,14 +20,23 @@ Cheap Yellow Display. It's adapted from
 </p>
 
 It turns one of these small 2.8 inch ESP32 touchscreens into a self-running
-desk aquarium: moving water, a handful of small creatures, plants, drifting
-food, and a 12-hour clock. Give it Wi-Fi and it syncs the time over NTP; leave
-Wi-Fi out and it still runs fine on its own. It also dims its own backlight
-using the light sensor already on the board.
+desk aquarium: moving water, a handful of small creatures, plants, and drifting
+food. This build is **fully offline** — no clock, no Wi-Fi, and no network
+setup. Flash it and it just runs. It also dims its own backlight using the
+light sensor already on the board.
 
 It's my own CYD take on the OpenMatrix aquarium, not a straight port of the
 original HUB75 RGB matrix project. The default build is just about the screen,
 so you don't need any external temperature, humidity, or CO2 sensors to run it.
+
+## Flash From Your Browser
+
+The easiest way to install — no toolchain required. Open the web installer in
+**Chrome or Edge**, plug your CYD in over USB, and click install:
+
+➡️ **[Web Installer](https://drkpxl.github.io/esp32-cyd-aquarium/)**
+
+It flashes a prebuilt, offline aquarium image straight from the browser.
 
 ## What It Does
 
@@ -38,19 +47,22 @@ small LED matrix.
 
 ## Features
 
-- Standalone live aquarium mode for the ESP32-2432S028R / CYD board.
+- Standalone, **fully offline** live aquarium for the ESP32-2432S028R / CYD board.
+- One-click **browser web installer** — no PlatformIO needed to flash.
 - 240x320 ILI9341 TFT output with an 80x106 logical pixel-aquarium frame.
 - Dot-grid renderer that gives the TFT a small LED-matrix look.
 - Autonomous fish, stars, turtles, snakes, octopuses, boids, plants, food, and
   animated water.
-- 12-hour clock with AM/PM, seconds, and a date overlay.
-- Optional Wi-Fi/NTP time sync, with a compile-time fallback when there's no
-  network.
-- Wi-Fi disconnects on its own after the NTP sync by default.
+- No clock, no Wi-Fi, no touch, and no network setup in the default build —
+  it just runs.
 - Automatic TFT backlight using the onboard GPIO34 light sensor.
-- Optional touch-to-feed.
 - No external environmental sensors needed for the default build.
 - Tested on the common ESP32-2432S028R / Cheap Yellow Display hardware.
+
+> The clock, Wi-Fi/NTP time sync, and touch-to-feed are still in the codebase
+> but disabled by default in this build. They can be re-enabled with the
+> `CYD_SHOW_CLOCK`, `CYD_WIFI_TIME`, and `CYD_ENABLE_TOUCH` build flags in
+> `platformio.ini`.
 
 ## Hardware
 
@@ -92,25 +104,31 @@ pio device monitor --environment esp32-2432s028r --baud 115200 --port COMx
 
 Detailed steps are in [docs/BUILD_AND_FLASH.md](docs/BUILD_AND_FLASH.md).
 
-## Wi-Fi and Time
+## Display Tuning and Panel Variants
 
-Wi-Fi is optional. Without Wi-Fi credentials, the aquarium still boots and uses
-the firmware compile time as a fallback clock.
+CYD boards ship with different panel revisions, so the same firmware can look
+wrong on a different board (inverted, washed out, byte-swapped colors, or a
+dark/orange/purple background). All of the display tuning lives in
+`platformio.ini` as `-D` build flags, so it's the single place to adjust:
 
-For NTP time sync, copy:
+| Flag | Purpose |
+| --- | --- |
+| `TFT_INVERSION_ON` / `TFT_INVERSION_OFF` | flips light/dark if the background is inverted |
+| `CYD_TFT_SWAP_BYTES` | `1`/`0` — fixes byte-swapped (rainbow/scrambled) colors |
+| `CYD_BACKGROUND_BRIGHTNESS` | brightness of the water only |
+| `CYD_FOREGROUND_BRIGHTNESS` / `CYD_FOREGROUND_SATURATION` | brightness/vividness of the creatures only |
+| `CYD_AUTO_BACKLIGHT_MIN_PERCENT` | floor for the auto-dimming backlight |
 
-```text
-include/WifiSecrets.example.h
-```
+This build is tuned for: inversion off, byte-swap on, bright water. See
+[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) if your board looks off.
 
-to:
+## Re-enabling the Clock and Wi-Fi
 
-```text
-include/WifiSecrets.h
-```
-
-Then fill in your own Wi-Fi name and password. `WifiSecrets.h` is ignored by
-git on purpose.
+This build ships offline with the clock, Wi-Fi/NTP, and touch turned off. To
+turn the clock and NTP time sync back on, set `-DCYD_SHOW_CLOCK=1` and
+`-DCYD_WIFI_TIME=1` in `platformio.ini`, then copy
+`include/WifiSecrets.example.h` to `include/WifiSecrets.h` and fill in your
+Wi-Fi name and password (`WifiSecrets.h` is git-ignored on purpose).
 
 See [docs/WIFI_TIME.md](docs/WIFI_TIME.md).
 
