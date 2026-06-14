@@ -63,6 +63,10 @@
 #define CYD_COLOR_DIAGNOSTIC 0
 #endif
 
+#ifndef CYD_COLOR_TEST_CARD
+#define CYD_COLOR_TEST_CARD 0
+#endif
+
 #ifndef CYD_COLOR_DIAGNOSTIC_INTERVAL_MS
 #define CYD_COLOR_DIAGNOSTIC_INTERVAL_MS 6000UL
 #endif
@@ -1253,10 +1257,19 @@ void setup() {
   matrix.setBrightness(stateManager.getState()->brightness);
   setupAmbientBacklight();
 
+#if CYD_COLOR_TEST_CARD
+  matrix.drawColorTestCard();
+  return;
+#endif
+
   aquarium.begin();
 }
 
 void loop() {
+#if CYD_COLOR_TEST_CARD
+  delay(100);
+  return;
+#endif
   static unsigned long lastFrameTime = 0;
 #if CYD_TOUCH_DEBUG
   static unsigned long lastTouchDebugTime = 0;

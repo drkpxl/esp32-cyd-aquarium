@@ -885,4 +885,31 @@ void CydMatrix::setColorDiagnostic(bool invert, bool swap) {
   tft.setSwapBytes(swap);
 }
 
+// Draws seven full-width solid color bars (top to bottom: RED, GREEN, BLUE,
+// YELLOW, CYAN, MAGENTA, WHITE) straight to the panel so the raw channel
+// mapping of this display revision can be read by eye.
+void CydMatrix::drawColorTestCard() {
+  struct TestBar {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+  };
+  static const TestBar bars[] = {
+      {255, 0, 0},   {0, 255, 0},   {0, 0, 255}, {255, 255, 0},
+      {0, 255, 255}, {255, 0, 255}, {255, 255, 255},
+  };
+  const uint8_t count = sizeof(bars) / sizeof(bars[0]);
+  const int16_t w = tft.width();
+  const int16_t h = tft.height();
+  const int16_t bandHeight = h / count;
+  for (uint8_t i = 0; i < count; ++i) {
+    const int16_t y = i * bandHeight;
+    const int16_t bh = (i == count - 1) ? (h - y) : bandHeight;
+    tft.fillRect(0, y, w, bh, tft.color565(bars[i].r, bars[i].g, bars[i].b));
+  }
+  Serial.println(
+      "color test card bars top->bottom: RED GREEN BLUE YELLOW CYAN MAGENTA "
+      "WHITE");
+}
+
 #endif  // PANEL_CYD_TFT
